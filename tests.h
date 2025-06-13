@@ -4,6 +4,8 @@
 
 #include "simple_vector.h"
 
+using namespace  std;
+
 // У функции, объявленной со спецификатором inline, может быть несколько
 // идентичных определений в разных единицах трансляции.
 // Обычно inline помечают функции, чьё тело находится в заголовочном файле,
@@ -223,4 +225,41 @@ inline void Test2() {
         v.Erase(v.cbegin() + 2);
         assert((v == SimpleVector<int>{1, 2, 4}));
     }
+}
+
+void TestReserveConstructor() {
+    cout << "TestReserveConstructor"s << endl;
+    SimpleVector<int> v(Reserve(5));
+    assert(v.GetCapacity() == 5);
+    assert(v.IsEmpty());
+    cout << "Done!"s << endl;
+}
+
+void TestReserveMethod() {
+    cout << "TestReserveMethod"s << endl;
+    SimpleVector<int> v;
+    // зарезервируем 5 мест в векторе
+    v.Reserve(5);
+    assert(v.GetCapacity() == 5);
+    assert(v.IsEmpty());
+
+    // попытаемся уменьшить capacity до 1
+    v.Reserve(1);
+    // capacity должно остаться прежним
+    assert(v.GetCapacity() == 5);
+    // поместим 10 элементов в вектор
+    for (int i = 0; i < 10; ++i) {
+        v.PushBack(i);
+    }
+    assert(v.GetSize() == 10);
+    // увеличим capacity до 100
+    v.Reserve(100);
+    // проверим, что размер не поменялся
+    assert(v.GetSize() == 10);
+    assert(v.GetCapacity() == 100);
+    // проверим, что элементы на месте
+    for (int i = 0; i < 10; ++i) {
+        assert(v[i] == i);
+    }
+    cout << "Done!"s << endl;
 }

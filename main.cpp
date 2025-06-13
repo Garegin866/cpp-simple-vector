@@ -4,6 +4,9 @@
 #include "tests.h"
 
 int main() {
+    TestReserveConstructor();
+    TestReserveMethod();
+
     Test1();
     Test2();
 

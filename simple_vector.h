@@ -7,6 +7,17 @@
 
 #include "array_ptr.h"
 
+struct ReserveProxyObj {
+    explicit ReserveProxyObj(size_t capacity_to_reserve)
+            : capacity(capacity_to_reserve) {}
+
+    size_t capacity;
+};
+
+ReserveProxyObj Reserve(size_t capacity_to_reserve) {
+    return ReserveProxyObj(capacity_to_reserve);
+}
+
 template <typename Type>
 class SimpleVector {
 public:
@@ -46,6 +57,14 @@ public:
           capacity_(other.capacity_) {
         std::copy(other.items_.Get(), other.items_.Get() + size_, items_.Get());
     }
+
+    // Конструктор, принимающий ReserveProxyObj
+    explicit SimpleVector(ReserveProxyObj reserve)
+            : items_(reserve.capacity ? new Type[reserve.capacity] : nullptr)
+            , size_(0)
+            , capacity_(reserve.capacity) {
+    }
+
 
     // oператор присваивания
     SimpleVector& operator=(const SimpleVector& rhs) {
@@ -122,6 +141,15 @@ public:
         }
 
         size_ = new_size;
+    }
+
+    void Reserve(size_t new_capacity) {
+        if (new_capacity > capacity_) {
+            ArrayPtr<Type> new_data(new_capacity);
+            std::copy(items_.Get(), items_.Get() + size_, new_data.Get());
+            items_.swap(new_data);
+            capacity_ = new_capacity;
+        }
     }
 
     // Возвращает итератор на начало массива

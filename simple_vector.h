@@ -58,6 +58,13 @@ public:
         std::copy(other.items_.Get(), other.items_.Get() + size_, items_.Get());
     }
 
+    // Конструктор перемещения
+    SimpleVector(SimpleVector&& other) noexcept
+        : items_(std::move(other.items_)) {
+        size_ = std::exchange(other.size_, 0);
+        capacity_ = std::exchange(other.capacity_, 0);
+    }
+
     // Конструктор, принимающий ReserveProxyObj
     explicit SimpleVector(ReserveProxyObj reserve)
             : items_(reserve.capacity ? new Type[reserve.capacity] : nullptr)
@@ -71,6 +78,16 @@ public:
         if (this != &rhs) {
             SimpleVector temp(rhs);
             swap(temp);
+        }
+        return *this;
+    }
+
+    // оператор присваивания перемещением
+    SimpleVector& operator=(SimpleVector&& rhs) noexcept {
+        if (this != &rhs) {
+            items_.swap(rhs.items_);
+            size_ = std::exchange(rhs.size_, 0);
+            capacity_ = std::exchange(rhs.capacity_, 0);
         }
         return *this;
     }
@@ -129,24 +146,29 @@ public:
     // При увеличении размера новые элементы получают значение по умолчанию для типа Type
     void Resize(size_t new_size) {
         if (new_size < size_) {
+            size_ = new_size;
         } else if (new_size <= capacity_) {
-            std::fill(items_.Get() + size_, items_.Get()+ new_size, Type{});
+            for (auto it = items_.Get() + size_; it != items_.Get() + new_size; ++it) {
+                *it = Type{};
+            }
+            size_ = new_size;
         } else {
             ArrayPtr<Type> new_data(new_size);
-            std::copy(items_.Get(), items_.Get() + size_, new_data.Get());
-            std::fill(new_data.Get() + size_, new_data.Get() + new_size, Type{});
-
+            std::move(items_.Get(), items_.Get() + size_, new_data.Get());
+            for (auto it = new_data.Get() + size_; it != new_data.Get() + new_size; ++it) {
+                *it = Type{};
+            }
             items_.swap(new_data);
             capacity_ = new_size;
+            size_ = new_size;
         }
-
-        size_ = new_size;
     }
+
 
     void Reserve(size_t new_capacity) {
         if (new_capacity > capacity_) {
             ArrayPtr<Type> new_data(new_capacity);
-            std::copy(items_.Get(), items_.Get() + size_, new_data.Get());
+            std::move(items_.Get(), items_.Get() + size_, new_data.Get());
             items_.swap(new_data);
             capacity_ = new_capacity;
         }
@@ -197,36 +219,37 @@ public:
 
     // Добавляет элемент в конец вектора
     // При нехватке места увеличивает вдвое вместимость вектора
-    void PushBack(const Type& value) {
+    void PushBack(Type value) {
         if (size_ >= capacity_) {
             capacity_ = std::max(capacity_ * 2, size_t(1));
             ArrayPtr<Type> new_data(capacity_);
-            std::copy(items_.Get(), items_.Get() + size_, new_data.Get());
+            std::move(items_.Get(), items_.Get() + size_, new_data.Get());
             items_.swap(new_data);
         }
-        items_[size_] = value;
+        items_[size_] = std::move(value);
         ++size_;
     }
+
 
     // Вставляет значение value в позицию pos.
     // Возвращает итератор на вставленное значение
     // Если перед вставкой значения вектор был заполнен полностью,
     // вместимость вектора должна увеличиться вдвое, а для вектора вместимостью 0 стать равной 1
-    Iterator Insert(ConstIterator pos, const Type& value) {
+    Iterator Insert(ConstIterator pos, Type value) {
         assert(pos >= begin() && pos <= end() && "Position out of range");
 
         size_t index = pos - begin();
         if (size_ >= capacity_) {
             capacity_ = std::max(capacity_ * 2, size_t(1));
             ArrayPtr<Type> new_data(capacity_);
-            std::copy(items_.Get(), items_.Get() + index, new_data.Get());
-            std::copy(items_.Get() + index, items_.Get() + size_, new_data.Get() + index + 1);
+            std::move(items_.Get(), items_.Get() + index, new_data.Get());
+            std::move(items_.Get() + index, items_.Get() + size_, new_data.Get() + index + 1);
             items_.swap(new_data);
         } else {
-            std::copy_backward(items_.Get() + index, items_.Get() + size_, items_.Get() + size_ + 1);
+            std::move_backward(items_.Get() + index, items_.Get() + size_, items_.Get() + size_ + 1);
         }
 
-        items_[index] = value;
+        items_[index] = std::move(value);
         ++size_;
         return items_.Get() + index;
     }
@@ -236,7 +259,7 @@ public:
         assert(pos >= begin() && pos < end() && "Position out of range");
 
         size_t index = pos - begin();
-        std::copy(items_.Get() + index + 1, items_.Get() + size_, items_.Get() + index);
+        std::move(items_.Get() + index + 1, items_.Get() + size_, items_.Get() + index);
         --size_;
         return items_.Get() + index;
     }

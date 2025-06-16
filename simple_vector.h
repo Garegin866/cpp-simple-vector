@@ -36,7 +36,7 @@ public:
 
     // Создаёт вектор из size элементов, инициализированных значением value
     SimpleVector(size_t size, const Type& value)
-        : items_(size > 0 ? ArrayPtr<Type>(size) : ArrayPtr<Type>()),
+        : items_(ArrayPtr<Type>(size)),
           size_(size),
           capacity_(size) {
         std::fill(items_.Get(), items_.Get() + size_, value);
@@ -148,16 +148,12 @@ public:
         if (new_size < size_) {
             size_ = new_size;
         } else if (new_size <= capacity_) {
-            for (auto it = items_.Get() + size_; it != items_.Get() + new_size; ++it) {
-                *it = Type{};
-            }
+            std::fill(items_.Get() + size_, items_.Get() + new_size, Type{});
             size_ = new_size;
         } else {
             ArrayPtr<Type> new_data(new_size);
             std::move(items_.Get(), items_.Get() + size_, new_data.Get());
-            for (auto it = new_data.Get() + size_; it != new_data.Get() + new_size; ++it) {
-                *it = Type{};
-            }
+            std::fill(new_data.Get() + size_, new_data.Get() + new_size, Type{});
             items_.swap(new_data);
             capacity_ = new_size;
             size_ = new_size;
@@ -212,14 +208,24 @@ public:
 
     // "Удаляет" последний элемент вектора. Вектор не должен быть пустым
     void PopBack() noexcept {
-        if (size_ > 0) {
-            --size_;
-        }
+        assert(size_ > 0 && "Cannot pop from an empty vector");
+        --size_;
     }
 
     // Добавляет элемент в конец вектора
     // При нехватке места увеличивает вдвое вместимость вектора
-    void PushBack(Type value) {
+    void PushBack(const Type& value) {
+        if (size_ >= capacity_) {
+            capacity_ = std::max(capacity_ * 2, size_t(1));
+            ArrayPtr<Type> new_data(capacity_);
+            std::move(items_.Get(), items_.Get() + size_, new_data.Get());
+            items_.swap(new_data);
+        }
+        items_[size_] = value;
+        ++size_;
+    }
+
+    void PushBack(Type&& value) {
         if (size_ >= capacity_) {
             capacity_ = std::max(capacity_ * 2, size_t(1));
             ArrayPtr<Type> new_data(capacity_);
@@ -230,7 +236,6 @@ public:
         ++size_;
     }
 
-
     // Вставляет значение value в позицию pos.
     // Возвращает итератор на вставленное значение
     // Если перед вставкой значения вектор был заполнен полностью,
@@ -240,11 +245,7 @@ public:
 
         size_t index = pos - begin();
         if (size_ >= capacity_) {
-            capacity_ = std::max(capacity_ * 2, size_t(1));
-            ArrayPtr<Type> new_data(capacity_);
-            std::move(items_.Get(), items_.Get() + index, new_data.Get());
-            std::move(items_.Get() + index, items_.Get() + size_, new_data.Get() + index + 1);
-            items_.swap(new_data);
+            Reserve(std::max(capacity_ * 2, size_t(1)));
         } else {
             std::move_backward(items_.Get() + index, items_.Get() + size_, items_.Get() + size_ + 1);
         }

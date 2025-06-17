@@ -227,10 +227,7 @@ public:
 
     void PushBack(Type&& value) {
         if (size_ >= capacity_) {
-            capacity_ = std::max(capacity_ * 2, size_t(1));
-            ArrayPtr<Type> new_data(capacity_);
-            std::move(items_.Get(), items_.Get() + size_, new_data.Get());
-            items_.swap(new_data);
+            Reserve(std::max(capacity_ * 2, size_t(1)));
         }
         items_[size_] = std::move(value);
         ++size_;
